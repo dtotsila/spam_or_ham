@@ -7,7 +7,7 @@ import numpy as np
 from utils import LogisticRegression, CustomDataset
 
 # Read Data
-df = pd.read_pickle('/home/dionis/Workspaces/spam_or_ham/data/tfidf.pkl')
+df = pd.read_pickle('data/tfidf.pkl')
 df.category = pd.factorize(df.category)[0]
 print(df)
 
@@ -19,8 +19,6 @@ y_train, y_test = torch.Tensor(y_train),torch.Tensor(y_test)
 
 train_dataset = CustomDataset(X_train, y_train)
 dataloader = DataLoader(train_dataset, batch_size=512, shuffle=True)
-
-
 
 # Hyper Parameters
 epochs = 3000
@@ -45,24 +43,18 @@ iter = 0
 for epoch in range(epochs):
     running_loss = 0.0
     for i, data in enumerate(dataloader, 0):
-        # get the inputs; data is a list of [inputs, output]
         inputs, outputs = data
-        # print(inputs)
         batch_loss = 0.0
         # zero the parameter gradients
         optimizer.zero_grad()
+
         # forward + backward + optimize
         output = model(inputs.view(-1, input_dim))
-        # print(output.shape, outputs.view(dim, -1).shape)
-        # + 0.005 * (1-w_all).square().sum().sum()
         loss = criterion( output, outputs.view(-1, output.shape[1]))
         running_loss += loss.item()
         loss.backward()
         optimizer.step()
-        # scheduler.step(loss.item())
-    # scheduler.step()
     train_mean_loss = running_loss/batches_per_epoch
-    # print(i)
     print("Epoch: ", epoch+1, "Loss: ", train_mean_loss)
 print('Finished Training')
 
