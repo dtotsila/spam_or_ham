@@ -43,6 +43,7 @@ tfidf = Transformer.fit_transform(df.processed.values.astype('U'))
 tfidfDF = pd.DataFrame(tfidf.todense())
 tfidfDF.columns = sorted(Transformer.vocabulary_)
 concaten = pd.concat([df, tfidfDF], axis=1)
+
 concaten = concaten.drop(['processed'], axis=1)
 print(concaten)
 concaten.to_pickle(r'data/tfidf.pkl')

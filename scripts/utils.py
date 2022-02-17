@@ -1,6 +1,8 @@
+
 import torch
 import pandas as pd
 from torch.utils.data import Dataset
+
 from nltk import word_tokenize
 from nltk.stem import PorterStemmer
 from nltk.corpus import stopwords as sw
@@ -41,6 +43,7 @@ def processing(row):
 
     return joined
 
+
 class CustomDataset(Dataset):
     """ Custom Spam or Ham Dataset. """
 
@@ -68,3 +71,4 @@ class LogisticRegression(torch.nn.Module):
     def forward(self, x):
         outputs = torch.sigmoid(self.linear(x))
         return outputs
+
