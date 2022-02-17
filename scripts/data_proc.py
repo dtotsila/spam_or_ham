@@ -20,21 +20,35 @@ df.drop(['Unnamed: 2', 'Unnamed: 3', 'Unnamed: 4'], axis=1, inplace=True)
 # Replace the column names so that they are more identifiable and easily accesed
 df = df.rename(columns={"v1": "category", "v2": "text"})
 
-# apply processing to every SMS and store results to a new row
+# we will balance the dataset a little bit 
+# under sample ham (select half th rows)
+ham = df[df['category'] == 'ham']
+# get 50% of ham demos
+ham = ham.sample(frac=0.5)
+
+# over sample spam (select each row two times)
+spam = df[df['category'] == 'spam']
+# duplicate every demo
+spam = pd.concat([spam]*2, ignore_index=True) 
+
+# concatenate spam and ham demos
+df = pd.concat([spam,ham], ignore_index=True)
+# shuffle dataset
+df = df.sample(frac=1)
+
+# apply processing to every SMS and store results to a new column
 df['processed'] = df.apply(processing, axis=1)
 
-# add a new rowsthat indicate if the message has numerical values
+# add a new column that indicates if the message has numerical values
 df['has_num'] = df.apply(has_numbers, axis=1)
 
-# add a new rowsthat indicate if the message has currency related stuff
+# add a new column that indicates if the message has currency related stuff
 df['has_money'] = df.apply(has_currency, axis=1)
-# add a new rows that contain the length of the message
+# add a new column that contains the length of each message
 
 df['length'] = df.apply(sms_len, axis=1)
 df = df.drop(['text'], axis=1)
 
-# storing data frame to csv so that it can be use from future py script
-df.to_pickle('data/stemmed.pkl')
 
 
 # tfidf vector representation of texts
@@ -42,23 +56,12 @@ Transformer = TfidfVectorizer(max_features=2500)
 tfidf = Transformer.fit_transform(df.processed.values.astype('U'))
 tfidfDF = pd.DataFrame(tfidf.todense())
 tfidfDF.columns = sorted(Transformer.vocabulary_)
-concaten = pd.concat([df, tfidfDF], axis=1)
-
-concaten = concaten.drop(['processed'], axis=1)
-print(concaten)
-concaten.to_pickle(r'data/tfidf.pkl')
+final = pd.concat([df, tfidfDF], axis=1)
+final = final.drop(['processed'], axis=1)
+print(final)
 
 
-# X_train, X_test, Y_train, Y_test = train_test_split(
-#     concaten.iloc[:, 2:], df['category'], test_size=0.2)
-
-# t0 = time()
-# model = GaussianNB()
-# model.fit(X_train, Y_train)
-# print(f"\nTraining time: {round(time()-t0, 3)}s")
-# t0 = time()
-# score_train = model.score(X_train, Y_train)
-# # print(f"Prediction time (train): {round(time()-t0, 3)}s")t0 = time()
-# score_test = model.score(X_test, Y_test)
-# # print(f"Prediction time (test): {round(time()-t0, 3)}s")print(“\nTrain set score:", score_train)
-# print("Test set score:", score_test)
+# split and store train-test because every method will be trained and tested on the same data, so that the comparisons are as fair as possible 
+train, test = train_test_split(final, test_size=0.33)
+train.to_csv('data/train.csv')
+test.to_csv('data/test.csv')
