@@ -1,72 +1,73 @@
-from pandas.core.arrays.boolean import coerce_to_array
 import torch
-import pandas as pd
-from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader
-import numpy as np
-from utils import LogisticRegression, CustomDataset
+from utils import  CustomDataset, read_data, plot_cf
+from sklearn.metrics import classification_report, confusion_matrix, accuracy_score 
+train = True
 
-# Read Data
-df = pd.read_pickle('data/tfidf.pkl')
-df.category = pd.factorize(df.category)[0]
-print(df)
+# Simple Logistic Regresion Module (sigmoid activated)
+class LogisticRegression(torch.nn.Module):
+    def __init__(self, input_dim, output_dim):
+         super(LogisticRegression, self).__init__()
+         self.linear = torch.nn.Linear(input_dim, output_dim)     
+    
+    def forward(self, x):
+        outputs = torch.sigmoid(self.linear(x))
+        return outputs
 
-
-
-X_train, X_test, y_train, y_test = train_test_split( df.iloc[:, 1:].to_numpy(), df["category"].to_numpy(), test_size=0.33)
-X_train, X_test = torch.Tensor(X_train),torch.Tensor(X_test)
-y_train, y_test = torch.Tensor(y_train),torch.Tensor(y_test)
-
+# Read Test Data
+X_train, y_train = read_data('train')
+X_test, y_test = read_data('test')
 train_dataset = CustomDataset(X_train, y_train)
-dataloader = DataLoader(train_dataset, batch_size=512, shuffle=True)
+
+# Train in batches 
+dataloader = DataLoader(train_dataset, batch_size=128, shuffle=True)
+batches_per_epoch = X_train.shape[0]//128
 
 # Hyper Parameters
-epochs = 3000
-
-# input_dim = tfidf vector length
-input_dim = X_test.shape[1]
+epochs = 1000
+learning_rate = 1e-2
 
 # 1 binary output (binary classification)
 output_dim = 1 
-learning_rate = 1e-4
-
+input_dim = X_test.shape[1]
 model = LogisticRegression(input_dim,output_dim)
 criterion = torch.nn.BCELoss()
 optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
 
-losses = []
-losses_test = []
-Iterations = []
-batches_per_epoch = X_train.shape[0]//512
-iter = 0
+if train:
+    # train loop
+    for epoch in range(epochs):
+        running_loss = 0.0
+        for i, data in enumerate(dataloader, 0):
+            inputs, outputs = data
+            batch_loss = 0.0
+            # zero the parameter gradients
+            optimizer.zero_grad()
 
-for epoch in range(epochs):
-    running_loss = 0.0
-    for i, data in enumerate(dataloader, 0):
-        inputs, outputs = data
-        batch_loss = 0.0
-        # zero the parameter gradients
-        optimizer.zero_grad()
+            # forward + backward + optimize
+            output = model(inputs.view(-1, input_dim))
+            loss = criterion( output, outputs.view(-1, output.shape[1]))
+            running_loss += loss.item()
+            loss.backward()
+            optimizer.step()
+        train_mean_loss = running_loss/batches_per_epoch
+        print("Epoch: ", epoch+1, "Loss: ", train_mean_loss)
+    print('Finished Training')
 
-        # forward + backward + optimize
-        output = model(inputs.view(-1, input_dim))
-        loss = criterion( output, outputs.view(-1, output.shape[1]))
-        running_loss += loss.item()
-        loss.backward()
-        optimizer.step()
-    train_mean_loss = running_loss/batches_per_epoch
-    print("Epoch: ", epoch+1, "Loss: ", train_mean_loss)
-print('Finished Training')
-
-
+    # store trained model
+    torch.save(model.state_dict(),'models/logistic_regression.pt')
+else: 
+    model.load_state_dict(torch.load('models/logistic_regression.pt'))
 model.eval()
-correct = 0
-total = 0
-for i in range(X_test.shape[0]):
-    output =torch.round(model(X_test[i]))
-    if(output == y_test[i]):
-        correct +=1
-    total += 1
-
-print(correct, total)
-print(correct/total * 100)
+# test
+# no derivative calculation so that the calculations are faster
+with torch.no_grad():
+    y_pred = []
+    for i in range(X_test.shape[0]):
+        # round to 0 or 1 so that class is determined
+        output =torch.round(model(X_test[i])).detach().numpy()
+        y_pred.append(output)
+    plot_cf(confusion_matrix(y_test,y_pred),"Logistic Regression")
+    print(confusion_matrix(y_test, y_pred)) 
+    print(classification_report(y_test,y_pred)) 
+    print(accuracy_score(y_test,y_pred))
