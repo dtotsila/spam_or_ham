@@ -43,3 +43,4 @@ The dataset used for training the models is the [SMS Spam Collection Dataset](ht
 
 
 ## Chat Application
+![chat](https://user-images.githubusercontent.com/50770773/213719444-3c232c4b-39df-4b61-9b74-f3c9b89118c2.png)
