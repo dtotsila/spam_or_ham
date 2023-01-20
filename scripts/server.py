@@ -1,3 +1,4 @@
+import numpy as np
 import socket
 import threading
 from collections import Counter
@@ -6,32 +7,32 @@ from utils import *
 import pickle
 import torch.nn as nn
 import torch
+
+
 class BinaryClassification(nn.Module):
     def __init__(self, input_dim):
-        super(BinaryClassification, self).__init__()        
-        self.layer_1 = nn.Linear(input_dim, 512) 
+        super(BinaryClassification, self).__init__()
+        self.layer_1 = nn.Linear(input_dim, 512)
         self.layer_2 = nn.Linear(512, 128)
         self.layer_3 = nn.Linear(128, 32)
-        self.layer_out = nn.Linear(32, 1) 
+        self.layer_out = nn.Linear(32, 1)
         self.relu = nn.ReLU()
-        
-        
+
     def forward(self, inputs):
         x = self.relu(self.layer_1(inputs))
         x = self.relu(self.layer_2(x))
         x = self.relu(self.layer_3(x))
         x = torch.sigmoid(self.layer_out(x))
-        
-        
+
         return x
-import numpy as np
+
 
 # read columns template pandas series representing a tf idf vector for every message to be classified
-template = pd.read_csv('data/test.csv',nrows=1)
+template = pd.read_csv('data/test.csv', nrows=1)
 
 
 # read idf needed for the tfidf vector representation of every new message for every term of the message
-# that is in the corpus vocabulary tf * idf we used this method since we wanted to calculate the tfidf 
+# that is in the corpus vocabulary tf * idf we used this method since we wanted to calculate the tfidf
 # vector even for messages that have not been already represented
 idf = pd.read_csv("data/idf.csv")
 
@@ -71,6 +72,8 @@ server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server.bind(ADDRESS)
 
 # function to start the connection
+
+
 def startChat():
 
     print("server is working on " + SERVER)
@@ -109,6 +112,8 @@ def startChat():
 
 # method to handle the
 # incoming messages
+
+
 def handle(conn, addr):
 
     print(f"new connection {addr}")
@@ -120,43 +125,45 @@ def handle(conn, addr):
         print(message)
         # broadcast message
         broadcastMessage(str.encode(is_spam(message)))
-       
+
     # close the connection
     conn.close()
 
 # method for broadcasting
 # messages to the each clients
+
+
 def broadcastMessage(message):
     for client in clients:
         client.send(message)
 
 
 def is_spam(message):
-    # read 3 of the best models and pass the text trough them 
+    # read 3 of the best models and pass the text trough them
     # if at least one method cosiders that the message is spam instead of the message
     # an error is broadcasted
-    
+
     # byte to str
     message = message.decode()
 
     # exctract user from message
-    user = "" 
-    for i in range(0,len(message)):
-        user+=str(message[i])
-        if message[i] ==":":
+    user = ""
+    for i in range(0, len(message)):
+        user += str(message[i])
+        if message[i] == ":":
             break
 
     # isolate message withot the user:
     new_mes = message[i+1:]
-    
+
     # preprocess message
     processed = message_processing(new_mes)
-    
+
     # calculate parameters
     length = len(new_mes)
     has_num = has_numbers_text(new_mes)
     has_cur = has_currency_text(new_mes)
-    
+
     # count term frequency for every word of the message
     tf = Counter(processed)
 
@@ -164,43 +171,44 @@ def is_spam(message):
     for col in template.columns:
         template[col].values[:] = 0.0
 
-
     # update template vector (zeros initialized)
     template.has_num.replace(0, has_num)
     template.has_money.replace(0, has_cur)
     template.length.replace(0, length)
-    
-    # convert message to tf-df vector 
+
+    # convert message to tf-df vector
     # load random forest
     for key in tf:
         try:
             # operation to raise exception if word is not in corpus vocabulary
             a = (template[key])
             # update coresponding tf-idf value
-            template[key]=tf.get(key) * idf.key.iloc[[0]].values
+            template[key] = tf.get(key) * idf.key.iloc[[0]].values
         except:
             print("word not in corpus vocabulary")
-    
+
     # sum of the models output (range 0 to 3 )
     sum = 0
     # extract vector to be inserted in models
-    input = template.iloc[0][2:].copy().to_numpy().reshape(-1,len(template.iloc[0][2:]))
+    input = template.iloc[0][2:].copy().to_numpy(
+    ).reshape(-1, len(template.iloc[0][2:]))
     # extra trees output
     sum += extra_trees.predict(input)
     # random forest output
     sum += random_forest.predict(input)
     # neural net output
     with torch.no_grad():
-        sum+=torch.round(model(torch.Tensor(input.astype(float)))).item()
+        sum += torch.round(model(torch.Tensor(input.astype(float)))).item()
     # if no more than 1 model classified the message as spam return it as is
-    if(sum<2):
-        return(message)
+    if (sum < 2):
+        return (message)
     # if at least two model marked the message as spam
     else:
         # Print in console that a spam message was found by the user
         print("SPAM Message found from : ", user)
         # return warning to be displayed so that all users know that a user tried to scam them
-        return(str(user)+" tried to send a spam message")
+        return (str(user)+" tried to send a spam message")
+
 
 # call the method to
 # begin the communication
