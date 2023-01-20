@@ -1,0 +1,8 @@
+chat
+matplotlib
+nltk
+numpy
+pandas
+scikit_learn
+torch
+~andas
